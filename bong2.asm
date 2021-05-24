@@ -100,7 +100,7 @@ sub word [upper_bar_x], BAR_SPEED
 ;jmp not_pressed
 
 not_pressed:
-; update ball direction
+; update ball direction if walls hit
 mov ax, word [ball_x]
 add ax, word [ball_xdir]
 cmp ax, 0
@@ -110,7 +110,7 @@ jge bounce_horizontally
 jmp check_bar_hit
 bounce_horizontally:
 neg word [ball_xdir]
-jmp wait_more
+jmp move_ball
 
 check_bar_hit:
 mov ax, word [ball_y]
@@ -120,62 +120,77 @@ cmp ax, SCREEN_HEIGHT-BAR_HEIGHT
 jge lower_bar_hit
 jmp move_ball
 
+xor dx, dx
 lower_bar_hit:
 mov ax, word [lower_bar_x]
 mov bx, word [ball_x]
 cmp ax, bx
-jle move_ball
+jge move_ball
 mov cx, ax
 add cx, BAR_WIDTH
-cmp bx, cx
-jge move_ball
+cmp cx, bx
+jle move_ball
 add ax, BAR_WIDTH/2
 sub bx, ax
 mov ax, bx
-mov bx, BAR_WIDTH/32
-div bx
+mov bl, 5
+idiv bl
 xor ah, ah
 mov word [ball_xdir], ax
 inc word [ball_ydir]
 neg word [ball_ydir]
+jmp move_ball
 
 upper_bar_hit:
 mov ax, word [upper_bar_x]
 mov bx, word [ball_x]
 cmp ax, bx
-jle move_ball
-mov cx, ax                      ; copy upper_bar_x
+jge move_ball
+mov cx, ax
 add cx, BAR_WIDTH
 cmp cx, bx
-jge move_ball
+jle move_ball
 add ax, BAR_WIDTH/2
 sub bx, ax
 mov ax, bx
-mov bx, BAR_WIDTH/32
-div bx
+mov bl, 5
+idiv bl
 xor ah, ah
 mov word [ball_xdir], ax
 dec word [ball_ydir]
 neg word [ball_ydir]
 
 move_ball:
-; move ball
-xor ax, ax
-mov al, byte [ball_xdir]
-xor bx, bx
-mov bl, byte [ball_ydir]
+mov ax, word [ball_xdir]
+mov bx, word [ball_ydir]
 add word [ball_x], ax
 add word [ball_y], bx
+
+check_gameover:
+cmp word [ball_y], 0
+jl gameover
+cmp word [ball_y], 320
+jg gameover
 
 wait_more:
 xor ax, ax
 int 1Ah
-;and dx, 0x1
+and dx, 0x1
 cmp dx, word [old_time]
 je wait_more
 mov word [old_time], dx
 
 jmp main_loop
+
+gameover:
+mov ax, 0x0600
+mov bh, 0x40
+xor cx, cx
+mov dx, 0x184f
+int 10h
+halt:
+nop
+jmp halt
 
 clear_screen:
 mov ah, 0x06
@@ -190,20 +205,19 @@ xor dx, dx
 int 10h
 ret
 
-
 kill:
-  mov ax, 0x1000
-  mov ax, ss
-  mov sp, 0xf000
-  mov ax, 0x5307
-  mov bx, 0x0001
-  mov cx, 0x0003
-  int 0x15
+mov ax, 0x1000
+mov ax, ss
+mov sp, 0xf000
+mov ax, 0x5307
+mov bx, 0x0001
+mov cx, 0x0003
+int 0x15
 
 ;data start
 ball_x: dw 140
 ball_y: dw 100
-ball_xdir: dw 4
+ball_xdir: dw 0
 ball_ydir: dw 1
 upper_bar_x: dw 140
 lower_bar_x: dw 140
